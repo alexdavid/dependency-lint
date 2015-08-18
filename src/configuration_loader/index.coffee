@@ -28,7 +28,7 @@ class ConfigurationLoader
         highland([filePath]).map require
       when '.yml', '.yaml'
         highland.wrapCallback(fs.readFile)(filePath, 'utf8')
-          .reduce '', (x, y) -> x + y
+          .collect()
           .map yaml.safeLoad
 
     stream.errors (err, push) ->
