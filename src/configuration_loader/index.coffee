@@ -1,10 +1,9 @@
 _ = require 'lodash'
-async = require 'async'
-asyncHandlers = require 'async-handlers'
 extensions = require './supported_file_extensions'
 fs = require 'fs'
-fsExtra = require 'fs-extra'
+highland = require 'highland'
 path = require 'path'
+prependToError = require '../util/prepend_to_error'
 yaml = require 'js-yaml'
 
 require 'coffee-script/register'
@@ -16,45 +15,43 @@ class ConfigurationLoader
   defaultConfigPath: path.join __dirname, '..', '..', 'config', 'default.json'
 
 
-  load: (dir, done) ->
-    merge = (args) -> _.assign {}, args...
-    async.parallel [
-      @loadDefaultConfig
-      (next) => @loadUserConfig dir, next
-    ], asyncHandlers.transform(merge, done)
+  load: (dir) ->
+    @getDefaultConfig()
+      .concat @getUserConfig(dir)
+      .reduce {}, _.assign
 
 
-  loadConfig: (filePath, done) =>
-    return done() unless filePath
-    handler = asyncHandlers.prependToError filePath, done
-    switch path.extname filePath
+  # Returns a stream containing the config as pairs
+  getConfig: (filePath) =>
+    stream = switch path.extname filePath
       when '.coffee', '.cson', '.js', '.json'
-        @toAsync (-> require filePath), handler
+        highland([filePath]).map require
       when '.yml', '.yaml'
-        async.waterfall [
-          (next) -> fs.readFile filePath, 'utf8', next
-          (content, next) => @toAsync (-> yaml.safeLoad content), next
-        ], handler
+        highland.wrapCallback(fs.readFile)(filePath, 'utf8')
+          .reduce '', (x, y) -> x + y
+          .map yaml.safeLoad
+
+    stream.errors (err, push) ->
+      prependToError err, filePath
+      push err
 
 
-  loadDefaultConfig: (done) =>
-    fsExtra.readJson @defaultConfigPath, done
+  # Returns a stream containing the default config as pairs
+  getDefaultConfig: =>
+    highland [require @defaultConfigPath]
 
 
-  loadUserConfig: (dir, done) =>
-    filePaths = _.map extensions, (ext) -> path.join dir, "dependency-lint.#{ext}"
-    async.waterfall [
-      (next) -> async.detect filePaths, fs.exists, (result) -> next null, result
-      @loadConfig
-    ], done
-
-
-  toAsync: (fn, done) ->
-    try
-      result = fn()
-    catch err
-      done err
-    done null, result
+  # Returns a stream containing the user config as pairs
+  getUserConfig: (dir) =>
+    highland extensions
+      .map (ext) -> path.join dir, "dependency-lint.#{ext}"
+      .flatFilter (filePath) ->
+        highland (push) ->
+          fs.exists filePath, (exists) ->
+            push null, exists
+            push null, highland.nil
+      .take 1
+      .flatMap @getConfig
 
 
 module.exports = ConfigurationLoader
