@@ -15,13 +15,14 @@ class ConfigurationLoader
   defaultConfigPath: path.join __dirname, '..', '..', 'config', 'default.json'
 
 
+  # Returns a highland stream with one element - the config found as an object
   load: (dir) ->
     @getDefaultConfig()
       .concat @getUserConfig(dir)
       .reduce {}, _.assign
 
 
-  # Returns a stream containing the config as pairs
+  # Returns a highland stream with one element - the config found at filePath as an object
   getConfig: (filePath) =>
     stream = switch path.extname filePath
       when '.coffee', '.cson', '.js', '.json'
@@ -36,12 +37,12 @@ class ConfigurationLoader
       push err
 
 
-  # Returns a stream containing the default config as pairs
+  # Returns a highland stream with one element - the default config as an object
   getDefaultConfig: =>
     highland [require @defaultConfigPath]
 
 
-  # Returns a stream containing the user config as pairs
+  # Returns a highland stream with one or no elements - the user config as an object
   getUserConfig: (dir) =>
     highland extensions
       .map (ext) -> path.join dir, "dependency-lint.#{ext}"

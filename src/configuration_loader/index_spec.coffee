@@ -62,7 +62,10 @@ describe 'ConfigurationLoader', ->
             beforeEach (done) ->
               async.series [
                 (next) => fs.writeFile @configPath, validContent, next
-                (next) => @configurationLoader.load(@tmpDir).stopOnError((@err) => next()).toArray ([@result]) => next()
+                (next) =>
+                  @configurationLoader.load(@tmpDir)
+                    .stopOnError (@err) => next()
+                    .toArray ([@result]) => next()
               ], done
 
             it 'does not return an error', ->
@@ -79,7 +82,10 @@ describe 'ConfigurationLoader', ->
             beforeEach (done) ->
               async.series [
                 (next) => fs.writeFile @configPath, invalidContent, next
-                (next) => @configurationLoader.load(@tmpDir).stopOnError((@err) => next()).toArray ([@result]) => next()
+                (next) =>
+                  @configurationLoader.load(@tmpDir)
+                    .stopOnError (@err) => next()
+                    .toArray ([@result]) => next()
               ], done
 
             it 'returns an error', ->
@@ -92,7 +98,9 @@ describe 'ConfigurationLoader', ->
 
     context 'without a user configuration', ->
       beforeEach (done) ->
-        @configurationLoader.load(@tmpDir).stopOnError((@err) => done()).toArray ([@result]) => done()
+        @configurationLoader.load(@tmpDir)
+          .stopOnError (@err) => done()
+          .toArray ([@result]) => done()
 
       it 'does not return an error', ->
         expect(@err).to.not.exist
