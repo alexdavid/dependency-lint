@@ -1,7 +1,7 @@
 _ = require 'lodash'
 coffeeScript = require 'coffee-script'
 detective = require 'detective'
-ModuleFilterer = require './module_filterer'
+ModuleNameParser = require './module_name_parser'
 path = require 'path'
 prependToError = require '../../util/prepend_to_error'
 Promise = require 'bluebird'
@@ -36,8 +36,12 @@ class RequiredModuleFinder
 
   findInContent: ({content, filePath}) ->
     moduleNames = detective content, {@isRequire}
-    moduleNames = ModuleFilterer.filterRequiredModules moduleNames
-    {name, files: [filePath]} for name in moduleNames
+    _.chain moduleNames
+      .reject ModuleNameParser.isBuiltIn
+      .reject ModuleNameParser.isRelative
+      .map ModuleNameParser.stripSubpath
+      .map (name) -> {name, file: filePath}
+      .value()
 
 
   isRequire: ({type, callee}) ->

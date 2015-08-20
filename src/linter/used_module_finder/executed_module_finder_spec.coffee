@@ -39,7 +39,7 @@ examples = [
   ]
 ,
   description: 'script using module exectuable'
-  expectedResult: [name: 'myModule', scripts: ['test']]
+  expectedResult: [name: 'myModule', script: 'test']
   packages: [
     dir: '.'
     content:
@@ -53,7 +53,7 @@ examples = [
   ]
 ,
   description: 'script using scoped module exectuable'
-  expectedResult: [name: '@myOrganization/myModule', scripts: ['test']]
+  expectedResult: [name: '@myOrganization/myModule', script: 'test']
   packages: [
     dir: '.'
     content:

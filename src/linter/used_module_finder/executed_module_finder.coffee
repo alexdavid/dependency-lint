@@ -1,5 +1,5 @@
 _ = require 'lodash'
-ModuleFilterer = require './module_filterer'
+ModuleNameParser = require './module_name_parser'
 Promise = require 'bluebird'
 path = require 'path'
 
@@ -32,8 +32,8 @@ class ExecutedModulesFinder
     result = []
     for moduleName, executables of moduleExecutables
       for executable in executables
+        continue if ModuleNameParser.isGlobalExecutable executable
         result.push moduleName if script.match(executable) and moduleName not in result
-    result = ModuleFilterer.filterExecutedModules result
     result
 
 
@@ -59,7 +59,7 @@ class ExecutedModulesFinder
     result = []
     for scriptName, script of scripts
       for moduleName in @findInScript script, moduleExecutables
-        result.push {name: moduleName, scripts: [scriptName]}
+        result.push {name: moduleName, script: scriptName}
     result
 
 
