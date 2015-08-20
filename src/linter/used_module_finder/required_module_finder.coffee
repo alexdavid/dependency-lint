@@ -3,9 +3,9 @@ async = require 'async'
 coffeeScript = require 'coffee-script'
 detective = require 'detective'
 globStream = require 'glob-stream'
-glob = require 'glob'
+highland = require 'highland'
 fs = require 'fs'
-ModuleFilterer = require './module_filterer'
+ModuleNameParser = require './module_name_parser'
 path = require 'path'
 
 
@@ -18,14 +18,16 @@ class RequiredModuleFinder
   #   Each element is an object of the form {name, file}
   find: (dir, done) ->
     filenames = globStream.create '**/*.{coffee,js}', {cwd: dir, ignore: @ignoreFilePatterns}
-    highland(filenames).flatMap (filePath) => @findInFile {dir, filePath}
+    highland(filenames).flatMap @findInFile
 
 
-  findInFile: ({dir, filePath}) ->
-    highland fs.createReadStream(path.join(dir, filePath), encoding: 'utf8')
-      .collect()
+  findInFile: ({base, path: filePath}) =>
+    highland fs.createReadStream(filePath, encoding: 'utf8')
       .map (content) => @compile {content, filePath} # BETTER: streaming coffeescript compiling
       .flatMap (content) => @findInContent {content, filePath}
+      .map (result) ->
+        result.file = path.relative base, filePath
+        result
 
 
   compile: ({content, filePath}) ->
@@ -37,9 +39,9 @@ class RequiredModuleFinder
 
   findInContent: ({content, filePath}) ->
     moduleNames = detective content, {@isRequire} # BETTER: streaming AST walking
-    moduleNames = ModuleFilterer.filterRequiredModules moduleNames
     highland(moduleNames)
-      .filter ModuleNameParser.isRelativeModule
+      .reject ModuleNameParser.isBuiltIn
+      .reject ModuleNameParser.isRelative
       .map ModuleNameParser.stripSubpath
       .map (name) -> {name, file: filePath}
 

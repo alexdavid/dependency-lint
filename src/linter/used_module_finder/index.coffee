@@ -24,14 +24,10 @@ class UsedModuleFinder
       .flatMap _.values
 
 
-  addFinding: (result, {name, files, scripts}) ->
-    if result[name]
-      result[name].files = result[name].files.concat files if files
-      result[name].scripts = result[name].scripts.concat scripts if scripts
-    else
-      result[name] = {name, files: files ? [], scripts: scripts ? []}
-
-    result
+  addFinding: (result, {name, file, script}) ->
+    result[name] = {name, files: [], scripts: []} unless result[name]
+    result[name].files.push file if file
+    result[name].scripts.push script if script
 
 
 module.exports = UsedModuleFinder

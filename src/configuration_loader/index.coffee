@@ -29,7 +29,6 @@ class ConfigurationLoader
         highland([filePath]).map require
       when '.yml', '.yaml'
         highland fs.createReadStream(filePath, encoding: 'utf8')
-          .collect()
           .map yaml.safeLoad # BETTER: streaming yaml loading
 
     stream.errors (err, push) ->
