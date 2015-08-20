@@ -9,6 +9,8 @@ path = require 'path'
 
 class ExecutedModulesFinder
 
+  # Returns a highland stream of an array
+  #   Each element is an object of the form {name, scripts}
   find: (dir, done) ->
     {scripts, dependencies, devDependencies} = require path.join(dir, 'package.json')
     scripts ?= {}

@@ -28,9 +28,9 @@ class ConfigurationLoader
       when '.coffee', '.cson', '.js', '.json'
         highland([filePath]).map require
       when '.yml', '.yaml'
-        highland.wrapCallback(fs.readFile)(filePath, 'utf8')
+        highland fs.createReadStream(filePath, encoding: 'utf8')
           .collect()
-          .map yaml.safeLoad
+          .map yaml.safeLoad # BETTER: streaming yaml loading
 
     stream.errors (err, push) ->
       prependToError err, filePath

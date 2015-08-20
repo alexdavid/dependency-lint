@@ -8,22 +8,22 @@ tmp = require 'tmp'
 examples = [
   content: 'myModule = require "myModule"'
   description: 'coffeescript file requiring a module'
-  expectedResult: [name: 'myModule', files: ['server.coffee']]
+  expectedResult: [name: 'myModule', file: 'server.coffee']
   filePath: 'server.coffee'
 ,
   content: 'myModule = require.resolve "myModule"'
   description: 'coffeescript file resolving a module'
-  expectedResult: [name: 'myModule', files: ['server.coffee']]
+  expectedResult: [name: 'myModule', file: 'server.coffee']
   filePath: 'server.coffee'
 ,
   content: 'var myModule = require("myModule");'
   description: 'javascript file requiring a module'
-  expectedResult: [name: 'myModule', files: ['server.js']]
+  expectedResult: [name: 'myModule', file: 'server.js']
   filePath: 'server.js'
 ,
   content: 'var myModule = require.resolve("myModule");'
   description: 'javascript file resolving a module'
-  expectedResult: [name: 'myModule', files: ['server.js']]
+  expectedResult: [name: 'myModule', file: 'server.js']
   filePath: 'server.js'
 ]
 
@@ -38,7 +38,10 @@ describe 'RequiredModuleFinder', ->
         beforeEach (done) ->
           async.series [
             (next) => fs.writeFile path.join(@tmpDir, filePath), content, next
-            (next) => new RequiredModuleFinder({}).find @tmpDir, (@err, @result) => next()
+            (next) =>
+              new RequiredModuleFinder({}).find @tmpDir
+                .stopOnError (@err) => next()
+                .toArray (@result) => next()
           ], done
 
         it 'does not return an error', ->

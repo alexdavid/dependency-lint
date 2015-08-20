@@ -2,6 +2,7 @@ _ = require 'lodash'
 async = require 'async'
 coffeeScript = require 'coffee-script'
 detective = require 'detective'
+globStream = require 'glob-stream'
 glob = require 'glob'
 fs = require 'fs'
 ModuleFilterer = require './module_filterer'
@@ -13,45 +14,34 @@ class RequiredModuleFinder
   constructor: ({@ignoreFilePatterns}) ->
 
 
+  # Returns a highland stream of an array
+  #   Each element is an object of the form {name, file}
   find: (dir, done) ->
-    async.waterfall [
-      (next) => glob '**/*.{coffee,js}', {cwd: dir, ignore: @ignoreFilePatterns}, next
-      (files, next) =>
-        iterator = (filePath, cb) => @findInFile {dir, filePath}, cb
-        async.concat files, iterator, next
-    ], done
+    filenames = globStream.create '**/*.{coffee,js}', {cwd: dir, ignore: @ignoreFilePatterns}
+    highland(filenames).flatMap (filePath) => @findInFile {dir, filePath}
 
 
-  findInFile: ({dir, filePath}, done) ->
-    async.waterfall [
-      (next) ->
-        fs.readFile path.join(dir, filePath), encoding: 'utf8', next
-      (content, next) =>
-        @compile {content, filePath}, next
-      (content, next) =>
-        next null, @findInContent({content, filePath})
-    ], done
+  findInFile: ({dir, filePath}) ->
+    highland fs.createReadStream(path.join(dir, filePath), encoding: 'utf8')
+      .collect()
+      .map (content) => @compile {content, filePath} # BETTER: streaming coffeescript compiling
+      .flatMap (content) => @findInContent {content, filePath}
 
 
-  compile: ({content, filePath}, done) ->
+  compile: ({content, filePath}) ->
     if path.extname(filePath) is '.coffee'
-      @compileCoffeescript {content, filePath}, done
+      coffeeScript.compile content, filename: filePath
     else
-      done null, content
-
-
-  compileCoffeescript: ({content, filePath}, done) ->
-    try
-      result = coffeeScript.compile content, filename: filePath
-    catch err
-      return done err
-    done null, result
+      content
 
 
   findInContent: ({content, filePath}) ->
-    moduleNames = detective content, {@isRequire}
+    moduleNames = detective content, {@isRequire} # BETTER: streaming AST walking
     moduleNames = ModuleFilterer.filterRequiredModules moduleNames
-    {name, files: [filePath]} for name in moduleNames
+    highland(moduleNames)
+      .filter ModuleNameParser.isRelativeModule
+      .map ModuleNameParser.stripSubpath
+      .map (name) -> {name, file: filePath}
 
 
   isRequire: ({type, callee}) ->
