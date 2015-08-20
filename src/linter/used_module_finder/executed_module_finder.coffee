@@ -2,7 +2,7 @@ _ = require 'lodash'
 async = require 'async'
 asyncHandlers = require 'async-handlers'
 fs = require 'fs'
-glob = require 'glob'
+globStream = require 'glob-stream'
 ModuleNameParser = require './module_name_parser'
 path = require 'path'
 
@@ -15,6 +15,10 @@ class ExecutedModulesFinder
     {scripts, dependencies, devDependencies} = require path.join(dir, 'package.json')
     scripts ?= {}
     modulesListed = _.keys(dependencies).concat _.keys(devDependencies)
+    @getPackageJsonPaths
+      .tap ensureModuleInstalled
+      .map @getModuleExecutables
+      .tap
     async.auto {
       packageJsons: (next) => @getModulePackageJsons dir, next
       moduleExecutables: ['packageJsons', (next, {packageJsons}) =>
@@ -50,20 +54,19 @@ class ExecutedModulesFinder
     result
 
 
-  getModulePackageJsons: (dir, done) ->
-    patterns = [
-      "#{dir}/node_modules/*/package.json"
-      "#{dir}/node_modules/*/*/package.json" # scoped packages
-    ]
-    async.concat patterns, glob, done
+  # Returns a highland stream of an array
+  #   Each element is a path to a module's package.json
+  getPackageJsonPaths: (dir, done) ->
+    globs = ['*/package.json', '*/*/package.json']
+    filenames = globStream.create globs, cwd: path.join(dir, 'node_modules')
+    highland(filenames)
+      .map (result) -> result.path
 
 
-  getModuleExecutables: (packageJsons) ->
-    result = {}
-    for packageJson in packageJsons
-      {name, bin} = require packageJson
-      result[name] = _.keys bin
-    result
+  getModuleExecutables: (packageJsonPath) ->
+    {name, bin} = require packageJsonPath
+    {name, executables: _.keys(bin)}
+
 
 
   parseModuleExecutables: ({moduleExecutables, scripts}) =>

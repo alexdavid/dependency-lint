@@ -94,6 +94,7 @@ describe 'ExecutedModuleFinder', ->
 
         else
           it 'does not yield an error', ->
+            console.log @err?.stack
             expect(@err).to.not.exist
 
           it 'returns the expected error', ->
