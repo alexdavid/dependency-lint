@@ -21,13 +21,13 @@ class RequiredModuleFinder
     highland(filenames).flatMap @findInFile
 
 
+  # Returns a highland stream of an array
+  #   Each element is an object of the form {name, file}
   findInFile: ({base, path: filePath}) =>
     highland fs.createReadStream(filePath, encoding: 'utf8')
       .map (content) => @compile {content, filePath} # BETTER: streaming coffeescript compiling
       .flatMap (content) => @findInContent {content, filePath}
-      .map (result) ->
-        result.file = path.relative base, filePath
-        result
+      .tap (result) -> result.file = path.relative base, filePath
 
 
   compile: ({content, filePath}) ->
@@ -37,6 +37,8 @@ class RequiredModuleFinder
       content
 
 
+  # Returns a highland stream of an array
+  #   Each element is an object of the form {name, file}
   findInContent: ({content, filePath}) ->
     moduleNames = detective content, {@isRequire} # BETTER: streaming AST walking
     highland(moduleNames)
