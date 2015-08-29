@@ -36,7 +36,6 @@ examples = [
   packageJson:
     dependencies: {myModule: '0.0.1'}
     scripts: {test: 'myExecutable --opt arg'}
-
 ,
   description: 'script using scoped module exectuable'
   expectedResult: [name: '@myOrganization/myModule', script: 'test']
@@ -72,23 +71,22 @@ describe 'ExecutedModuleFinder', ->
           actions.push (next) =>
             @result = []
             finder = new ExecutedModuleFinder dir: @tmpDir
-            finder.on 'data', (data) => @result.push 'data'
-            finder.once 'error', (@err) => done()
-            finder.once 'end', done
+            finder.on 'data', (data) => @result.push data
+            finder.once 'error', (@err) => next()
+            finder.once 'done', next
             finder.start()
-            next()
           async.series actions, done
 
         if expectedError
-          it 'returns the expected error', ->
+          it 'emits the expected error', ->
             expect(@err).to.eql expectedError
 
-          it 'does not yield a result', ->
-            expect(@result).to.not.exist
+          it 'does not emit any results', ->
+            expect(@result).to.be.empty
 
         else
-          it 'does not yield an error', ->
+          it 'does not emit an error', ->
             expect(@err).to.not.exist
 
-          it 'returns the expected error', ->
+          it 'emits the expected result', ->
             expect(@result).to.eql expectedResult
