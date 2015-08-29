@@ -82,19 +82,17 @@ describe 'ExecutedModuleFinder', ->
                 fs.outputJson filePath, content, next
               async.each packages, writePackage, taskDone
             (taskDone) =>
-              new ExecutedModuleFinder().find @tmpDir, (@err, @result) => taskDone()
+              new ExecutedModuleFinder().find @tmpDir
+                .stopOnError (@err) => taskDone()
+                .toArray (@result) => taskDone()
           ], done
 
         if expectedError
           it 'returns the expected error', ->
             expect(@err).to.eql expectedError
 
-          it 'does not yield a result', ->
-            expect(@result).to.not.exist
-
         else
           it 'does not yield an error', ->
-            console.log @err?.stack
             expect(@err).to.not.exist
 
           it 'returns the expected error', ->

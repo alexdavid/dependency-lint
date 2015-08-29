@@ -22,4 +22,6 @@ async.waterfall [
   (results, next) ->
     new DefaultFormatter({stream: process.stdout}).print results
     process.exit 1 if hasError results
-], asyncHandlers.exitOnError
+], (err) ->
+  console.log err.stack
+  asyncHandlers.exitOnError err

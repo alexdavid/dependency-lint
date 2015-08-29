@@ -16,8 +16,9 @@ class RequiredModuleFinder
 
   # Returns a highland stream of an array
   #   Each element is an object of the form {name, file}
-  find: (dir, done) ->
-    filenames = globStream.create '**/*.{coffee,js}', {cwd: dir, ignore: @ignoreFilePatterns}
+  find: (dir) ->
+    ignore = @ignoreFilePatterns.map (pattern) -> path.join(dir, pattern)
+    filenames = globStream.create '**/*.{coffee,js}', {cwd: dir, ignore}
     highland(filenames).flatMap @findInFile
 
 
@@ -44,10 +45,10 @@ class RequiredModuleFinder
   findInContent: ({content, filePath}) ->
     try
       result = detective content, {@isRequire}
-      highland(result)
     catch err
       err.message = "#{filePath}: #{err.message}"
       throw err
+    highland(result)
 
 
   isRequire: ({type, callee}) ->

@@ -1,9 +1,10 @@
 _ = require 'lodash'
+async = require 'async'
+asyncHandlers = require 'async-handlers'
 extensions = require './supported_file_extensions'
 fs = require 'fs'
-highland = require 'highland'
+fsExtra = require 'fs-extra'
 path = require 'path'
-prependToError = require '../util/prepend_to_error'
 yaml = require 'js-yaml'
 
 require 'coffee-script/register'
@@ -15,43 +16,45 @@ class ConfigurationLoader
   defaultConfigPath: path.join __dirname, '..', '..', 'config', 'default.json'
 
 
-  # Returns a highland stream with one element - the config
-  load: (dir) ->
-    @getDefaultConfig()
-      .concat @getUserConfig(dir)
-      .reduce {}, _.assign
+  load: (dir, done) ->
+    merge = (args) -> _.assign {}, args...
+    async.parallel [
+      @loadDefaultConfig
+      (next) => @loadUserConfig dir, next
+    ], asyncHandlers.transform(merge, done)
 
 
-  # Returns a highland stream with one element - the config found at filePath
-  getConfig: (filePath) =>
-    stream = switch path.extname filePath
+  loadConfig: (filePath, done) =>
+    return done() unless filePath
+    handler = asyncHandlers.prependToError filePath, done
+    switch path.extname filePath
       when '.coffee', '.cson', '.js', '.json'
-        highland([filePath]).map require
+        @toAsync (-> require filePath), handler
       when '.yml', '.yaml'
-        highland fs.createReadStream(filePath, encoding: 'utf8')
-          .map yaml.safeLoad # BETTER: streaming yaml loading
-
-    stream.errors (err, push) ->
-      prependToError err, filePath
-      push err
+        async.waterfall [
+          (next) -> fs.readFile filePath, 'utf8', next
+          (content, next) => @toAsync (-> yaml.safeLoad content), next
+        ], handler
 
 
-  # Returns a highland stream with one element - the default config
-  getDefaultConfig: =>
-    highland [require @defaultConfigPath]
+  loadDefaultConfig: (done) =>
+    fsExtra.readJson @defaultConfigPath, done
 
 
-  # Returns a highland stream with one or no elements - the user config
-  getUserConfig: (dir) =>
-    highland extensions
-      .map (ext) -> path.join dir, "dependency-lint.#{ext}"
-      .flatFilter (filePath) ->
-        highland (push) ->
-          fs.exists filePath, (exists) ->
-            push null, exists
-            push null, highland.nil
-      .head()
-      .flatMap @getConfig
+  loadUserConfig: (dir, done) =>
+    filePaths = _.map extensions, (ext) -> path.join dir, "dependency-lint.#{ext}"
+    async.waterfall [
+      (next) -> async.detect filePaths, fs.exists, (result) -> next null, result
+      @loadConfig
+    ], done
+
+
+  toAsync: (fn, done) ->
+    try
+      result = fn()
+    catch err
+      done err
+    done null, result
 
 
 module.exports = ConfigurationLoader
