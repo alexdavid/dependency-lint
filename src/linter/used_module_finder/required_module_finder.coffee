@@ -24,7 +24,9 @@ class RequiredModuleFinder
   findInFile: ({dir, filePath}) ->
     readFile path.join(dir, filePath), 'utf8'
       .then (content) => @compile {content, filePath}
-      .then (content) => @findInContent {content, filePath}
+      .then (content) => detective content, {@isRequire}
+      .then (moduleNames) => @normalizeModuleNames {filePath, moduleNames}
+      .catch prependToError filePath
 
 
   compile: ({content, filePath}) ->
@@ -32,16 +34,6 @@ class RequiredModuleFinder
       coffeeScript.compile content, filename: filePath
     else
       content
-
-
-  findInContent: ({content, filePath}) ->
-    moduleNames = detective content, {@isRequire}
-    _.chain moduleNames
-      .reject ModuleNameParser.isBuiltIn
-      .reject ModuleNameParser.isRelative
-      .map ModuleNameParser.stripSubpath
-      .map (name) -> {name, file: filePath}
-      .value()
 
 
   isRequire: ({type, callee}) ->
@@ -53,6 +45,15 @@ class RequiredModuleFinder
         callee.object.name is 'require' and
         callee.property.type is 'Identifier' and
         callee.property.name is 'resolve'))
+
+
+  normalizeModuleNames: ({filePath, moduleNames}) ->
+    _.chain moduleNames
+      .reject ModuleNameParser.isBuiltIn
+      .reject ModuleNameParser.isRelative
+      .map ModuleNameParser.stripSubpath
+      .map (name) -> {name, file: filePath}
+      .value()
 
 
 module.exports = RequiredModuleFinder
