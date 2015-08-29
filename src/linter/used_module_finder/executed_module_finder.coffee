@@ -1,13 +1,29 @@
 _ = require 'lodash'
 async = require 'async'
 asyncHandlers = require 'async-handlers'
+{EventEmitter} = require 'events'
 fs = require 'fs'
-glob = require 'glob'
+globStream = require 'glob-stream'
 ModuleNameParser = require './module_name_parser'
 path = require 'path'
 
 
-class ExecutedModulesFinder
+class ExecutedModulesFinder extends EventEmitter
+
+  constuctor: ({@dir}) ->
+    {@scripts, dependencies, devDependencies} = require path.join(dir, 'package.json')
+    @scripts = {} unless @scripts
+    @modulesListed = _.keys(dependencies).concat _.keys(devDependencies)
+
+
+  start: ->
+    @ensureAllModulesInstalled ->
+      fs.readdir path.join(dir, 'node_modules', 'bin/'), (err, files) ->
+        if err then return @emit err
+      globStream.create "*", cwd: path.join(dir, 'node_modules', 'bin/')
+        .on 'data', @parsePackageJsonPath
+        .on 'end', => @emit 'end'
+
 
   find: (dir, done) ->
     {scripts, dependencies, devDependencies} = require path.join(dir, 'package.json')
@@ -15,7 +31,7 @@ class ExecutedModulesFinder
     callback = ([_, moduleExecutables]) => @findModuleExecutableUsage {moduleExecutables, scripts}
     async.parallel [
       (next) =>
-        modulesListed = _.keys(dependencies).concat _.keys(devDependencies)
+
         @ensureAllModulesInstalled {dir, modulesListed}, next
       (next) =>
         @getModuleExecutables dir, next
@@ -29,9 +45,9 @@ class ExecutedModulesFinder
         if err then missing.push moduleName
         next()
     callback = (err) ->
-      if err then return done err
+      if err then return @emit err
       if missing.length is 0 then return done()
-      done new Error """
+      @emit new Error """
         The following modules are listed in your `package.json` but are not installed.
           #{missing.join '\n  '}
         All modules need to be installed to properly check for the usage of a module's executables.

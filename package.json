@@ -57,7 +57,7 @@
     "docopt": "^0.6.0",
     "fs-cson": "^0.3.0",
     "fs-extra": "^0.23.1",
-    "glob": "^5.0.3",
+    "glob-stream": "^5.0.0",
     "js-yaml": "^3.3.1",
     "lodash": "^3.2.0",
     "minimatch": "^2.0.8"

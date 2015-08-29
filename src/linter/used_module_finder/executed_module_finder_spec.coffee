@@ -69,7 +69,14 @@ describe 'ExecutedModuleFinder', ->
               src = path.relative nodeModulesBinPath, executablePath
               dest = path.join nodeModulesBinPath, nodeModule.executable
               fsExtra.ensureSymlink src, dest, next
-          actions.push (next) => new ExecutedModuleFinder().find @tmpDir, (@err, @result) => next()
+          actions.push (next) =>
+            @result = []
+            finder = new ExecutedModuleFinder dir: @tmpDir
+            finder.on 'data', (data) => @result.push 'data'
+            finder.once 'error', (@err) => done()
+            finder.once 'end', done
+            finder.start()
+            next()
           async.series actions, done
 
         if expectedError
